@@ -1,7 +1,9 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+
 import icon from '../../resources/icon.png?asset'
+import { setupAuthIPC, setupFileIPC, setupSettingsIPC } from './ipc'
 
 function createWindow(): void {
   // Create the browser window.
@@ -13,7 +15,10 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      // 在 BrowserWindow 中，始终设置 nodeIntegration: false 来确保渲染进程无法直接访问 Node.js API，这样可以增强安全性。preload.js 是唯一允许渲染进程与主进程进行交互的安全通道
+      // contextBridge：确保仅暴露必要的 API，避免直接暴露可能带来安全风险的功能。例如，不要暴露对文件系统、网络请求等敏感操作的直接访问。
+      nodeIntegration: false // 禁用 Node.js 集成
     }
   })
 
@@ -53,6 +58,10 @@ app.whenReady().then(() => {
   ipcMain.on('ping', () => console.log('pong'))
 
   createWindow()
+
+  setupAuthIPC()
+  setupFileIPC()
+  setupSettingsIPC()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
